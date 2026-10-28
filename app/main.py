@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 
 from app.config import settings
-from app.routers import auth, health, users, projects, tasks
+from app.routers import auth, health, users, projects, tasks, comments
 
 app = FastAPI(
     title=settings.app_name,
@@ -14,6 +14,7 @@ app.include_router(auth.router)
 app.include_router(users.router)
 app.include_router(projects.router)
 app.include_router(tasks.router)
+app.include_router(comments.router)
 
 @app.get("/")
 def root() -> dict[str, str]:

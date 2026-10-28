@@ -3,12 +3,12 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.deps import get_current_user
-from app.models import Project, Task, User
+from app.models import Project, Task, User, ActivityEvent
 from app.routers.projects import get_owned_project
-from app.schemas import TaskCreate, TaskPriority, TaskRead, TaskStatus, TaskUpdate
+from app.schemas import TaskCreate, TaskPriority, TaskRead, TaskStatus, TaskUpdate, CommentCreate, CommentRead, ActivityEventRead
+from app.services.activity import record_activity
 
 router = APIRouter(tags=["Tasks"])
-
 
 @router.post(
     "/projects/{project_id}/tasks",
@@ -35,8 +35,16 @@ def create_task(
     db.add(task)
     db.commit()
     db.refresh(task)
+    record_activity(
+        db=db,
+        task_id=task.id,
+        actor=current_user,
+        event_type="task_created",
+        payload={"title": task.title},
+    )
+    db.commit()
+    db.refresh(task)
     return task
-
 
 @router.get("/projects/{project_id}/tasks", response_model=list[TaskRead])
 def list_tasks(
@@ -105,11 +113,35 @@ def update_task(
         )
 
     update_data = task_in.model_dump(exclude_unset=True)
+    changes: dict[str, dict] = {}
 
     for field, value in update_data.items():
         if field in {"status", "priority"} and value is not None:
             value = value.value
+
+        old_value = getattr(task, field)
+        if value != old_value:
+            changes[field] = {"old": old_value, "new": value}
+
         setattr(task, field, value)
+
+    for field, change in changes.items():
+        if field == "status":
+            event_type = "task_status_changed"
+        elif field == "priority":
+            event_type = "task_priority_changed"
+        elif field == "assignee_id":
+            event_type = "task_assigned"
+        else:
+            continue
+
+        record_activity(
+            db=db,
+            task_id=task.id,
+            actor=current_user,
+            event_type=event_type,
+            payload=change,
+        )
 
     db.commit()
     db.refresh(task)

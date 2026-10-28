@@ -16,7 +16,9 @@ def clean_database() -> Generator[None, None, None]:
                 TRUNCATE TABLE
                     users,
                     projects,
-                    tasks
+                    tasks,
+                    comments,
+                    activity_events
                 RESTART IDENTITY CASCADE
                 """
             )
