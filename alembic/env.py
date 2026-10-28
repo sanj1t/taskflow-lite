@@ -1,6 +1,6 @@
 from app.config import settings
 from app.models import Base
-from app import models
+from app import models # noqa: F401
 
 from logging.config import fileConfig
 
